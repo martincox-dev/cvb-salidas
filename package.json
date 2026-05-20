@@ -1,0 +1,15 @@
+{
+  "name": "cvb-salidas",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "node server/runtime.mjs",
+    "start": "NODE_ENV=production node server/runtime.mjs",
+    "auth": "node server/gmail-auth.mjs"
+  },
+  "dependencies": {
+    "googleapis": "^144.0.0",
+    "@libsql/client": "^0.17.3"
+  }
+}

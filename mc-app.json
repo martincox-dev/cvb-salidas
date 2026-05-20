@@ -1,0 +1,15 @@
+{
+  "name": "cvb-salidas",
+  "description": "Bot de registro de salidas del Club de Vela Benicàssim",
+  "startup_command": "/bin/sh -c \"apk add --no-cache git && rm -rf /srv/app && git clone --depth=1 https://github.com/martincox-dev/cvb-salidas.git /srv/app && cd /srv/app && npm ci --omit=dev && node server/runtime.mjs\"",
+  "health_check": {
+    "protocol": "HTTP",
+    "port": 3002,
+    "path": "/health"
+  },
+  "environment": {
+    "PORT": "3002",
+    "NODE_ENV": "production"
+  },
+  "note": "Ver .env.example para todas las variables necesarias"
+}
