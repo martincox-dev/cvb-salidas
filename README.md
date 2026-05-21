@@ -53,6 +53,7 @@ Nota: `runtime.mjs` no carga `.env` automáticamente; en local conviene arrancar
 | `ALLOWED_SENDERS` | Emails autorizados, separados por coma; vacío = aceptar todos |
 | `SHEETS_ID` | ID de la hoja de Google Sheets |
 | `SHEETS_TAB` | Nombre de la pestaña (por defecto `Registro`) |
+| `POLL_NOW_TOKEN` | Token opcional para proteger `POST /api/poll-now` |
 | `LIBSQL_URL` | Opcional — BunnyDB para log de auditoría |
 | `LIBSQL_AUTH_TOKEN` | Opcional — token BunnyDB |
 
@@ -114,3 +115,7 @@ Una fila por socio por email. Para el recuento anual basta con filtrar por año 
 | GET | `/health` | Health check para Bunny MC |
 | GET | `/api/status` | Estado del bot (emails procesados, errores, último poll) |
 | POST | `/api/poll-now` | Fuerza un chequeo inmediato de Gmail |
+
+Si `POLL_NOW_TOKEN` está definido, hay que enviarlo en:
+- `x-poll-token: <token>` o
+- `Authorization: Bearer <token>`

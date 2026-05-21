@@ -19,6 +19,7 @@ const ALLOWED_SENDERS = (process.env.ALLOWED_SENDERS || "")
 const VALID_MEMBERS_CSV = process.env.VALID_MEMBERS || "";
 const MEMBERS_SOURCE_TAB = process.env.MEMBERS_SOURCE_TAB || "Salidas";
 const MEMBERS_SOURCE_RANGE = process.env.MEMBERS_SOURCE_RANGE || "A3:A300";
+const POLL_NOW_TOKEN = process.env.POLL_NOW_TOKEN || "";
 const LIBSQL_URL = process.env.LIBSQL_URL || "";
 const LIBSQL_AUTH_TOKEN = process.env.LIBSQL_AUTH_TOKEN || "";
 
@@ -47,6 +48,15 @@ const server = createServer((req, res) => {
     return json(res, 200, { ...stats, pollIntervalMs: POLL_INTERVAL_MS });
   }
   if (req.method === "POST" && url.pathname === "/api/poll-now") {
+    if (POLL_NOW_TOKEN) {
+      const headerToken = req.headers["x-poll-token"];
+      const auth = req.headers.authorization || "";
+      const bearerToken = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+      const providedToken = String(headerToken || bearerToken || "");
+      if (providedToken !== POLL_NOW_TOKEN) {
+        return json(res, 401, { ok: false, error: "unauthorized" });
+      }
+    }
     if (!triggerPoll) {
       return json(res, 503, { ok: false, error: "poll_not_ready" });
     }

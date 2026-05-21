@@ -14,8 +14,11 @@
 - `POST /api/poll-now`
 - Ejemplo:
   ```bash
-  curl -X POST "https://<endpoint>/api/poll-now"
+  curl -X POST "https://<endpoint>/api/poll-now" \\
+    -H "x-poll-token: <POLL_NOW_TOKEN>"
   ```
+
+Si no defines `POLL_NOW_TOKEN`, el endpoint no exige autenticación (no recomendado).
 
 ## Formato de email válido
 - Asunto: contiene `salidas` + fecha (`19 mayo`, `19 de mayo`, `19/05`, `19-05`, con año opcional).
