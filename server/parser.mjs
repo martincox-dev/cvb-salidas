@@ -29,14 +29,7 @@ export function parseEmail(bodyText, subjectText = "", receivedAt = new Date()) 
   const date = parseDateFromSubject(subjectText, receivedAt);
   if (!date) return null;
 
-  const memberText = normalizeBodyForMembers(bodyText || "");
-  const members = memberText
-    .split(/[\s,;]+/)
-    .map((s) => s.replace(/\D/g, ""))
-    .filter(Boolean)
-    .map(Number)
-    .filter((n) => n > 0 && n < 10000)
-    .filter((n, i, arr) => arr.indexOf(n) === i);
+  const members = extractMembersFromListBody(bodyText || "");
 
   if (members.length === 0) return null;
 
@@ -106,6 +99,35 @@ function normalizeBodyForMembers(text) {
   }
 
   return cleaned.join(" ");
+}
+
+function extractMembersFromListBody(text) {
+  const lines = String(text || "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const members = [];
+  for (const line of lines) {
+    if (line.startsWith(">")) continue;
+    if (line === "--" || line === "-- ") break;
+
+    // Solo líneas de lista: dígitos separados por coma/espacio/;/tab
+    // Ejemplos válidos: "85,94,95" | "85 94 95" | "85; 94; 95" | "85"
+    // Ejemplos no válidos: "El socio 85 salió a las 12"
+    const isListLine = /^\s*\d+(?:\s*[,;\t ]\s*\d+)*\s*$/.test(line);
+    if (!isListLine) continue;
+
+    const nums = line
+      .split(/[\s,;]+/)
+      .map((s) => Number(s))
+      .filter((n) => Number.isInteger(n) && n > 0 && n < 10000);
+
+    members.push(...nums);
+  }
+
+  return members.filter((n, i, arr) => arr.indexOf(n) === i);
 }
 
 function toISO(year, month, day) {
