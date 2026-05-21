@@ -93,8 +93,8 @@ async function poll(gmail, sheets, processedLabelId, validMembers) {
       return { skipped: false, reason: "gmail_read_error" };
     }
 
-    for (const { id, body, sender, subject } of emails) {
-      const parsed = parseEmail(body, subject);
+    for (const { id, body, sender, subject, receivedAt } of emails) {
+      const parsed = parseEmail(body, subject, receivedAt);
 
       if (!parsed) {
         console.warn(`Email ${id} de ${sender}: no se pudo parsear. Ignorado.`);

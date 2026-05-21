@@ -51,7 +51,8 @@ export async function fetchUnprocessedEmails(gmail, processedLabelId, allowedSen
     const body = extractBody(msg);
     const sender = extractHeader(msg, "From");
     const subject = extractHeader(msg, "Subject");
-    results.push({ id, body, sender, subject });
+    const receivedAt = msg.internalDate ? new Date(Number(msg.internalDate)).toISOString() : null;
+    results.push({ id, body, sender, subject, receivedAt });
   }
 
   return results;

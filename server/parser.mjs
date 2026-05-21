@@ -9,18 +9,24 @@ const MESES = {
  * Reglas:
  * - La fecha se extrae del asunto.
  * - El asunto debe contener la palabra "salidas" (no sensible a mayúsculas).
- * - La fecha debe incluir año y debe ser del año en curso.
+ * - El año en asunto es opcional.
+ * - Si el asunto incluye año, debe coincidir con el año de recepción.
+ * - Si el asunto no incluye año, se usa el año de recepción.
  *
  * Variantes de fecha en asunto admitidas:
+ *   "salidas 10 junio"
  *   "salidas 10 junio 2026"
+ *   "Salidas 10 de junio"
  *   "Salidas 10 de junio de 2026"
+ *   "salidas 10/06"
  *   "salidas 10/06/2026"
+ *   "salidas 10-06"
  *   "salidas 10-06-2026"
  *
  * El cuerpo contiene números de socio separados por comas, espacios o saltos de línea.
  */
-export function parseEmail(bodyText, subjectText = "") {
-  const date = parseDateFromSubject(subjectText);
+export function parseEmail(bodyText, subjectText = "", receivedAt = new Date()) {
+  const date = parseDateFromSubject(subjectText, receivedAt);
   if (!date) return null;
 
   const memberText = normalizeBodyForMembers(bodyText || "");
@@ -37,29 +43,30 @@ export function parseEmail(bodyText, subjectText = "") {
   return { date, members };
 }
 
-function parseDateFromSubject(rawSubject) {
+function parseDateFromSubject(rawSubject, receivedAt) {
   const subject = normalize(rawSubject);
   if (!subject.includes("salidas")) return null;
 
-  const currentYear = new Date().getFullYear();
+  const receptionYear = new Date(receivedAt).getFullYear();
+  if (!Number.isInteger(receptionYear)) return null;
 
-  // "10 junio 2026" | "10 de junio de 2026"
-  const textMatch = subject.match(/(\d{1,2})\s*(?:de\s+)?([a-z]+)\s*(?:de\s+)?(\d{4})/i);
+  // "10 junio" | "10 junio 2026" | "10 de junio" | "10 de junio de 2026"
+  const textMatch = subject.match(/(\d{1,2})\s*(?:de\s+)?([a-z]+)(?:\s*(?:de\s+)?(\d{4}))?/i);
   if (textMatch) {
     const day = parseInt(textMatch[1], 10);
     const month = MESES[textMatch[2].toLowerCase()];
-    const year = parseInt(textMatch[3], 10);
-    if (month && year === currentYear) return toISO(year, month, day);
+    const year = textMatch[3] ? parseInt(textMatch[3], 10) : receptionYear;
+    if (month && year === receptionYear) return toISO(year, month, day);
     return null;
   }
 
-  // "10/06/2026" | "10-06-2026"
-  const numMatch = subject.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  // "10/06" | "10/06/2026" | "10-06" | "10-06-2026"
+  const numMatch = subject.match(/(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{4}))?/);
   if (numMatch) {
     const day = parseInt(numMatch[1], 10);
     const month = parseInt(numMatch[2], 10);
-    const year = parseInt(numMatch[3], 10);
-    if (year === currentYear) return toISO(year, month, day);
+    const year = numMatch[3] ? parseInt(numMatch[3], 10) : receptionYear;
+    if (year === receptionYear) return toISO(year, month, day);
     return null;
   }
 
