@@ -27,6 +27,8 @@ const db = LIBSQL_URL && LIBSQL_AUTH_TOKEN
   : null;
 
 let stats = { processed: 0, errors: 0, lastPoll: null, lastError: null };
+let triggerPoll = null;
+let pollRunning = false;
 
 // ── HTTP server (health + status) ────────────────────────────────────────────
 
@@ -36,11 +38,20 @@ const json = (res, code, body) => {
 };
 
 const server = createServer((req, res) => {
+  const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+
   if (req.method === "GET" && req.url === "/health") {
     return json(res, 200, { ok: true });
   }
   if (req.method === "GET" && req.url === "/api/status") {
     return json(res, 200, { ...stats, pollIntervalMs: POLL_INTERVAL_MS });
+  }
+  if (req.method === "POST" && url.pathname === "/api/poll-now") {
+    if (!triggerPoll) {
+      return json(res, 503, { ok: false, error: "poll_not_ready" });
+    }
+    triggerPoll("manual").then((result) => json(res, 200, { ok: true, ...result }));
+    return;
   }
   json(res, 404, { error: "not found" });
 });
@@ -65,57 +76,72 @@ async function initDb() {
 // ── Polling loop ──────────────────────────────────────────────────────────────
 
 async function poll(gmail, sheets, processedLabelId, validMembers) {
-  stats.lastPoll = new Date().toISOString();
-
-  let emails;
+  if (pollRunning) return { skipped: true, reason: "already_running" };
+  pollRunning = true;
   try {
-    emails = await fetchUnprocessedEmails(gmail, processedLabelId, ALLOWED_SENDERS);
-  } catch (err) {
-    stats.errors++;
-    stats.lastError = err.message;
-    console.error("Error al leer Gmail:", err.message);
-    return;
-  }
+    stats.lastPoll = new Date().toISOString();
+    const beforeProcessed = stats.processed;
+    const beforeErrors = stats.errors;
 
-  for (const { id, body, sender, subject } of emails) {
-    const parsed = parseEmail(body, subject);
-
-    if (!parsed) {
-      console.warn(`Email ${id} de ${sender}: no se pudo parsear. Ignorado.`);
-      await markAsProcessed(gmail, id, processedLabelId);
-      continue;
-    }
-
-    const matchedMembers = parsed.members.filter((m) => validMembers.has(m));
-    if (matchedMembers.length === 0) {
-      console.warn(`Email ${id} de ${sender}: sin socios válidos. Ignorado.`);
-      await markAsProcessed(gmail, id, processedLabelId);
-      continue;
-    }
-
-    const { date } = parsed;
-    console.log(`Email ${id} → ${date} | socios válidos: ${matchedMembers.join(", ")}`);
-
+    let emails;
     try {
-      const count = await appendSalidas(sheets, { date, members: matchedMembers, recordedBy: sender });
-      stats.processed += count;
-
-      if (db) {
-        for (const socio of matchedMembers) {
-          await db.execute({
-            sql: "INSERT INTO salidas (fecha, socio, registrado, remitente) VALUES (?, ?, ?, ?)",
-            args: [date, socio, new Date().toISOString(), sender],
-          });
-        }
-      }
-
-      await markAsProcessed(gmail, id, processedLabelId);
-      console.log(`✓ ${count} salidas registradas (${date})`);
+      emails = await fetchUnprocessedEmails(gmail, processedLabelId, ALLOWED_SENDERS);
     } catch (err) {
       stats.errors++;
       stats.lastError = err.message;
-      console.error(`Error al guardar salidas del email ${id}:`, err.message);
+      console.error("Error al leer Gmail:", err.message);
+      return { skipped: false, reason: "gmail_read_error" };
     }
+
+    for (const { id, body, sender, subject } of emails) {
+      const parsed = parseEmail(body, subject);
+
+      if (!parsed) {
+        console.warn(`Email ${id} de ${sender}: no se pudo parsear. Ignorado.`);
+        await markAsProcessed(gmail, id, processedLabelId);
+        continue;
+      }
+
+      const matchedMembers = parsed.members.filter((m) => validMembers.has(m));
+      if (matchedMembers.length === 0) {
+        console.warn(`Email ${id} de ${sender}: sin socios válidos. Ignorado.`);
+        await markAsProcessed(gmail, id, processedLabelId);
+        continue;
+      }
+
+      const { date } = parsed;
+      console.log(`Email ${id} → ${date} | socios válidos: ${matchedMembers.join(", ")}`);
+
+      try {
+        const count = await appendSalidas(sheets, { date, members: matchedMembers, recordedBy: sender });
+        stats.processed += count;
+
+        if (db) {
+          for (const socio of matchedMembers) {
+            await db.execute({
+              sql: "INSERT INTO salidas (fecha, socio, registrado, remitente) VALUES (?, ?, ?, ?)",
+              args: [date, socio, new Date().toISOString(), sender],
+            });
+          }
+        }
+
+        await markAsProcessed(gmail, id, processedLabelId);
+        console.log(`✓ ${count} salidas registradas (${date})`);
+      } catch (err) {
+        stats.errors++;
+        stats.lastError = err.message;
+        console.error(`Error al guardar salidas del email ${id}:`, err.message);
+      }
+    }
+
+    return {
+      skipped: false,
+      checkedEmails: emails.length,
+      addedRows: stats.processed - beforeProcessed,
+      newErrors: stats.errors - beforeErrors,
+    };
+  } finally {
+    pollRunning = false;
   }
 }
 
@@ -143,6 +169,7 @@ async function main() {
   }
 
   const run = () => poll(gmail, sheets, processedLabelId, validMembers);
+  triggerPoll = run;
 
   await run();
   setInterval(run, POLL_INTERVAL_MS);
