@@ -10,8 +10,8 @@ import { buildSheetsClient, appendSalidas, ensureHeader } from "./sheets-writer.
 import { parseEmail } from "./parser.mjs";
 
 const PORT = Number(process.env.PORT || 3002);
-const POLL_INTERVAL_MS = Math.max(60_000, Number(process.env.GMAIL_POLL_INTERVAL_MS || 120_000));
-const PROCESSED_LABEL = process.env.GMAIL_PROCESSED_LABEL || "cvb-procesado";
+const POLL_INTERVAL_MS = Math.max(60_000, Number(process.env.GMAIL_POLL_INTERVAL_MS || 86_400_000));
+const PROCESSED_LABEL = process.env.GMAIL_PROCESSED_LABEL || "cvb-salidas-procesado";
 const ALLOWED_SENDERS = (process.env.ALLOWED_SENDERS || "")
   .split(",")
   .map((s) => s.trim())

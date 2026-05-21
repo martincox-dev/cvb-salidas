@@ -1,7 +1,7 @@
 # cvb-salidas
 
 Bot de registro de salidas del Club de Vela Benicàssim.
-Recibe emails en `salidas@cvbenicasim.com` (reenviado a `cvbenicasim@gmail.com`), parsea las salidas y las escribe en Google Sheets.
+Monitoriza `cvbenicasim@gmail.com`, parsea las salidas y las escribe en Google Sheets.
 
 ---
 
@@ -48,7 +48,9 @@ Nota: `runtime.mjs` no carga `.env` automáticamente; en local conviene arrancar
 | `GOOGLE_CLIENT_SECRET` | OAuth2 client secret |
 | `GOOGLE_REFRESH_TOKEN` | Refresh token (obtenido con `npm run auth`) |
 | `GMAIL_INBOX` | `cvbenicasim@gmail.com` |
-| `ALLOWED_SENDERS` | Emails autorizados, separados por coma (usar remitentes reales de `From`) |
+| `GMAIL_PROCESSED_LABEL` | Etiqueta de procesado (recomendado: `cvb-salidas-procesado`) |
+| `GMAIL_POLL_INTERVAL_MS` | Intervalo de revisión (por defecto: `86400000`, 1 vez/día) |
+| `ALLOWED_SENDERS` | Emails autorizados, separados por coma; vacío = aceptar todos |
 | `SHEETS_ID` | ID de la hoja de Google Sheets |
 | `SHEETS_TAB` | Nombre de la pestaña (por defecto `Registro`) |
 | `LIBSQL_URL` | Opcional — BunnyDB para log de auditoría |
@@ -62,16 +64,24 @@ Valores operativos actuales:
 
 ## Formato de email aceptado
 
-**Asunto:** cualquiera (p.ej. `Salidas 19 junio`)
+**Asunto:** debe contener `salidas` + fecha.
+Ejemplos válidos:
+- `Salidas 19 mayo`
+- `Salidas 19 de mayo`
+- `Salidas 19/05`
+- `Salidas 19-05`
+- con año opcional (`... 2026`)
 
 **Cuerpo:**
 ```
-19 de junio
-121, 310, 54, 32, 199
+121, 310, 54
 ```
 
-Formatos de fecha válidos: `19 de junio`, `19/06`, `19/06/2025`, `19-06`
-Los números de socio pueden ir separados por comas, espacios o saltos de línea.
+Notas:
+- Si el asunto incluye año, debe coincidir con el año de recepción.
+- Si no incluye año, se usa el año de recepción.
+- El cuerpo debe ir en formato lista (comas, espacios, saltos de línea o `;`).
+- Solo se registran socios existentes en la columna A de la pestaña `Salidas`.
 
 ---
 
@@ -103,3 +113,4 @@ Una fila por socio por email. Para el recuento anual basta con filtrar por año 
 |---|---|---|
 | GET | `/health` | Health check para Bunny MC |
 | GET | `/api/status` | Estado del bot (emails procesados, errores, último poll) |
+| POST | `/api/poll-now` | Fuerza un chequeo inmediato de Gmail |
