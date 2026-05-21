@@ -38,7 +38,7 @@ export async function fetchUnprocessedEmails(gmail, processedLabelId, allowedSen
     : "";
 
   const q = [
-    "-label:cvb-procesado",
+    `-label:${process.env.GMAIL_PROCESSED_LABEL || "cvb-procesado"}`,
     senderFilter,
   ].filter(Boolean).join(" ");
 
